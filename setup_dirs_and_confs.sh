@@ -22,13 +22,15 @@ do
   com="$LOTTERYCOINLOC/src/bitcoind $args"
   
   echo  "$com" > run_daemon.sh
+  echo "$com -debug" > debug_daemon.sh
   chmod +x run_daemon.sh
+  chmod +x debug_daemon.sh
 
   echo "$LOTTERYCOINLOC/src/bitcoin-cli -regtest -port=$port -rpcport=$rpcport -rpcuser=test -rpcpassword=test -whitelist=127.0.0.1 \$@" > bitcoin_command.sh
   chmod +x bitcoin_command.sh
 
   cd ../
-  cp slf4j-simple-1.7.16.jar ~/bitcoinj-lotterycoin/core/target/bitcoinj-core-0.14-SNAPSHOT-bundled.jar LotteryEntry.java build_app.sh debug.sh $NEWDIR
+  cp slf4j-simple-1.7.16.jar ~/bitcoinj-lotterycoin/core/target/bitcoinj-core-0.14-SNAPSHOT-bundled.jar LotteryEntry.java build_app.sh debug_app.sh $NEWDIR
   echo "$NEWDIR created."
 
   echo `cat run_app.sh` "$port" > $NEWDIR/run_app.sh
