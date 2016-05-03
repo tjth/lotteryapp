@@ -7,6 +7,7 @@ then
 fi
 
 PREFIX="/home/tjt12/lottery-app"
+LOTTERYCOINLOC="/home/tjt12/lotterycoin"
 
 for i in `seq 1 $1`;
 do
@@ -18,12 +19,12 @@ do
   port=$((${i}+18445))
   rpcport=$((${i}+20222))
   args="-printtoconsole -datadir=$PREFIX/$NEWDIR/data -regtest -daemon -printtoconsole -listen -port=$port -rpcport=$rpcport -rpcuser=test -rpcpassword=test -acceptnonstdtxn"
-  com="$PREFIX/lotterycoin/src/bitcoind $args"
+  com="$LOTTERYCOINLOC/src/bitcoind $args"
   
   echo  "$com" > run_daemon.sh
   chmod +x run_daemon.sh
 
-  echo "$PREFIX/lotterycoin/src/bitcoin-cli -regtest -port=$port -rpcport=$rpcport -rpcuser=test -rpcpassword=test -whitelist=127.0.0.1 \$@" > bitcoin_command.sh
+  echo "$LOTTERYCOINLOC/src/bitcoin-cli -regtest -port=$port -rpcport=$rpcport -rpcuser=test -rpcpassword=test -whitelist=127.0.0.1 \$@" > bitcoin_command.sh
   chmod +x bitcoin_command.sh
 
   cd ../
