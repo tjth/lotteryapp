@@ -126,7 +126,7 @@ public class LotteryEntry {
             System.out.println("Commands: \"balance\", \"quit\", \"enter\", \"claim x\", \"candidates\""); 
             break;
           case "candidates" :
-            for (TransactionOutput o : kit.wallet().calculateAllSpendCandidates())
+            for (TransactionOutput o : kit.wallet().calculateAllClaimCandidates())
               System.out.println(o.getParentTransactionHash() + " " + o.getIndex());
             break;
           default:
