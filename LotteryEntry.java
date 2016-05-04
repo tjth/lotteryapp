@@ -17,6 +17,7 @@
 
 
 import org.bitcoinj.core.*;
+import org.bitcoinj.core.Wallet.BalanceType;
 import org.bitcoinj.crypto.KeyCrypterException;
 import org.bitcoinj.kits.WalletAppKit;
 import org.bitcoinj.params.MainNetParams;
@@ -104,7 +105,10 @@ public class LotteryEntry {
         switch(command) {
          case "quit" : return;
          case "balance": 
-           System.out.println(kit.wallet().getBalance().toPlainString());
+           System.out.println(kit.wallet().getBalance(BalanceType.LOTTERYAVAILABLE).toPlainString());
+           break;
+         case "claimable":
+           System.out.println("Claimable: " + kit.wallet().getClaimableBalance().toPlainString());
            break;
          case "enter" : lotteryEntry(); break;
          case "claim" : 
