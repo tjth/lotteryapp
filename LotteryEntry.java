@@ -180,9 +180,9 @@ public class LotteryEntry {
         return;
       }
 
-      List<TransactionOutput> candidates = kit.wallet().calculateAllSpendCandidates(true, false);
+      List<TransactionOutput> candidates = kit.wallet().calculateAllClaimCandidates();
       if (candidates.size() == 0) {
-        System.out.println("No current spend candidates.\n");
+        System.out.println("No current claim candidates.\n");
         return;
       }
 
