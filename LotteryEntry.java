@@ -110,10 +110,10 @@ public class LotteryEntry {
         switch(command) {
          case "quit" : return;
          case "balance": 
-           System.out.println(kit.wallet().getBalance(BalanceType.LOTTERYAVAILABLE).toPlainString());
+           prettyPrint("Current balance: " + kit.wallet().getBalance(BalanceType.LOTTERYAVAILABLE).toPlainString());
            break;
          case "claimable":
-           System.out.println("Claimable: " + kit.wallet().getClaimableBalance().toPlainString());
+           prettyPrint("Claimable: " + kit.wallet().getClaimableBalance().toPlainString());
            break;
          case "enter" : lotteryEntry(); break;
          case "claim" : 
@@ -128,14 +128,15 @@ public class LotteryEntry {
             claimWinnings(guess);
             break;
           case "help" : 
-            System.out.println("Commands: \"balance\", \"quit\", \"enter\", \"claim x\", \"candidates\""); 
+            prettyPrint("Commands: \"balance\", \"quit\", \"enter\", \"claim x\", \"candidates\""); 
             break;
           case "candidates" :
+            prettyPrint("Spend candidates (other entries):");
             for (TransactionOutput o : kit.wallet().calculateAllClaimCandidates())
               System.out.println(o.getParentTransactionHash() + " " + o.getIndex());
             break;
           default:
-            System.out.println("Unrecognized command.");
+            prettyPrint("Unrecognized command.");
         }
       }
     }
@@ -251,6 +252,11 @@ public class LotteryEntry {
           }
        }, MoreExecutors.sameThreadExecutor());
     }
+  }
+
+
+  private static void prettyPrint(String s) {
+    System.out.println("\n\n################\n" + s + "\n################");
   }
 }
 
