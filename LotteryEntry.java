@@ -90,6 +90,11 @@ public class LotteryEntry {
       ScriptBuilder builder = new ScriptBuilder();
       Script script = builder.op(ScriptOpCodes.OP_BEACON).op(ScriptOpCodes.OP_EQUAL).build();
       scriptList.add(script);
+      builder = new ScriptBuilder();
+      for(int i = 1; i < 10; i++) {
+        script = builder.smallNum(i).build();
+        scriptList.add(script);
+      }
       kit.wallet().addWatchedScripts(scriptList);
 
       Address sendToAddress = kit.wallet().currentReceiveKey().toAddress(params);
