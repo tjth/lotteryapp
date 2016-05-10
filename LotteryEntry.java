@@ -22,6 +22,7 @@ import org.bitcoinj.crypto.KeyCrypterException;
 import org.bitcoinj.kits.WalletAppKit;
 import org.bitcoinj.params.MainNetParams;
 import org.bitcoinj.params.RegTestParams;
+import org.bitcoinj.params.LotteryNetParams;
 import org.bitcoinj.params.TestNet3Params;
 import org.bitcoinj.script.*;
 import org.bitcoinj.signers.LocalTransactionSigner;
@@ -31,6 +32,8 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.MoreExecutors;
 
 import java.io.File;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -50,13 +53,21 @@ public class LotteryEntry {
     public static void main(String[] args) throws Exception {
       BriefLogFormatter.init();
       if (args.length < 1) {
-          System.err.println("Usage: LotteryEntry [regtest|testnet] [customPort?]");
+          System.err.println("Usage: LotteryEntry [regtest|testnet] [customPort?] [lotterySeed?]");
           return;
       }
 
       // Figure out which network we should connect to. Each one gets its own set of files.
       String filePrefix;
-      if (args[0].equals("testnet")) {
+      if (args[0].equals("lotterynet")) {
+          if (args.length != 3) {
+            System.err.println("Please supply a port and seed for lottery net!");
+            return;
+          }
+
+          params = LotteryNetParams.get(Integer.parseInt(args[1]));
+          filePrefix = "lottery-entry-lotterynet";
+      } else if (args[0].equals("testnet")) {
           params = TestNet3Params.get();
           filePrefix = "lottery-entry-testnet";
       } else if (args[0].equals("regtest")) {
@@ -77,6 +88,16 @@ public class LotteryEntry {
           // Regression test mode is designed for testing and development only, so there's no public network for it.
           // If you pick this mode, you're expected to be running a local "bitcoind -regtest" instance.
           kit.connectToLocalHost();
+      } else if (params == LotteryNetParams.get()) {
+          String seed = args[2]; 
+          InetAddress addr;
+          try {
+            addr = InetAddress.getByName(seed);
+          } catch (UnknownHostException e) {
+            System.err.println("Cannot connect to seed provided.");
+            throw new RuntimeException(e);
+          }
+          kit.connectToLotteryNet(addr);
       }
 
       // Download the block chain and wait until it's done.
