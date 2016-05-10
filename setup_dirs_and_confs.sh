@@ -39,9 +39,8 @@ do
   chmod +x attach_debugger.sh  
 
   cd ../
-  cp jline-1.0.jar slf4j-simple-1.7.16.jar ~/bitcoinj-lotterycoin/core/target/bitcoinj-core-0.14-SNAPSHOT-bundled.jar LotteryEntry.java build_app.sh $NEWDIR
+  cp jline-1.0.jar slf4j-simple-1.7.16.jar ~/bitcoinj-lotterycoin/core/target/bitcoinj-core-0.14-SNAPSHOT-bundled.jar LotteryEntry.java build_and_run_app.sh $NEWDIR
+  echo `cat run_app.sh` "$port" >> $NEWDIR/build_and_run_app.sh
+  
   echo "$NEWDIR created."
-
-  echo `cat run_app.sh` "$port" > $NEWDIR/run_app.sh
-  chmod +x $NEWDIR/run_app.sh
 done
