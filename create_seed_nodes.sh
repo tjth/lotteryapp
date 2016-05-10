@@ -6,8 +6,6 @@ then
   exit -1
 fi
 
-CONNCECTCMD=""
-
 for i in `seq 1 $1`;
 do
   port=$((${i}+18445))
