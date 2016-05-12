@@ -22,7 +22,7 @@ do
   mkdir $NEWDIR
   cd $NEWDIR
 
-  node=$((${i}%${numseeds}))
+  node=$((${i}%${numseeds} + 1))
   port=$((${node}+18445))
   rpcport=$((${i}+20222))
   dbgport=$((${i}+30111))

@@ -3,3 +3,5 @@
 *.swp
 *.wallet
 *.spvchain
+participants/
+seed_nodes/
