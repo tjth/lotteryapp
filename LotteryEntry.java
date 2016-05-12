@@ -163,20 +163,25 @@ public class LotteryEntry {
     }
 
     private static void lotteryEntry() {
-      if (kit.wallet().getBalance().isLessThan(Coin.COIN)) {
-        System.out.println("Not enough balance to enter lottery!");
-        System.out.println("Wallet balance: " + kit.wallet().getBalance());
-        return;
-      } 
-
       try {
         Coin lotteryEntryCost = Coin.COIN;
 
-        // Now send the entry!
+        // Construct an entry script
         ScriptBuilder builder = new ScriptBuilder();
         Script script = builder.op(ScriptOpCodes.OP_BEACON).op(ScriptOpCodes.OP_EQUAL).build();
+
+        // Construct an entry
         TransactionOutput txoGuess = 
           new TransactionOutput(params, null, lotteryEntryCost, script.getProgram());
+          
+        Coin valueNeeded = Coin.COIN;
+        valueNeeded = valueNeeded.add(txoGuess.getMinNonDustValue());
+        valueNeeded = valueNeeded.add(Transaction.REFERENCE_DEFAULT_MIN_TX_FEE);
+        if (kit.wallet().getBalance().isLessThan(valueNeeded)) {
+          System.out.println("Not enough balance to enter lottery!");
+          System.out.println("Wallet balance: " + kit.wallet().getBalance());
+          return;
+        } 
 
         Transaction newtx = new Transaction(params);
         newtx.addOutput(txoGuess);
