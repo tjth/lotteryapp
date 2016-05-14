@@ -51,6 +51,11 @@ public class LotteryEntry {
     private static NetworkParameters params;
 
     public static void main(String[] args) throws Exception {
+      Script script1 = getEntryScript();
+      System.out.println("Script 1 is " + (script1.isLotteryEntry() ? "" : "not ") + "a lottery entry script.");
+      Script script2 = getGuessScript(5);
+      System.out.println("Script 2 is " + (script2.isLotteryClaim() ? "" : "not ") + "a lottery claim script.");
+
       BriefLogFormatter.init();
       if (args.length < 1) {
           System.err.println("Usage: LotteryEntry [regtest|testnet] [customPort?] [lotterySeed?]");
@@ -104,18 +109,11 @@ public class LotteryEntry {
       kit.startAsync();
       kit.awaitRunning();
 
-
-
-      // Make the wallet watch the lottery entry scripts
+      // Make the wallet watch the lottery entry and claim scripts
       ArrayList<Script> scriptList = new ArrayList<Script>();
-      ScriptBuilder builder = new ScriptBuilder();
-      Script script = builder.op(ScriptOpCodes.OP_BEACON).op(ScriptOpCodes.OP_EQUAL).build();
+      Script script = getEntryScript();
       scriptList.add(script);
-      builder = new ScriptBuilder();
-      for(int i = 1; i < 10; i++) {
-        script = builder.smallNum(i).build();
-        scriptList.add(script);
-      }
+      scriptList.addAll(getAllGuessScripts());
       kit.wallet().addWatchedScripts(scriptList);
 
       Address sendToAddress = kit.wallet().currentReceiveKey().toAddress(params);
@@ -167,8 +165,7 @@ public class LotteryEntry {
         Coin lotteryEntryCost = Coin.COIN;
 
         // Construct an entry script
-        ScriptBuilder builder = new ScriptBuilder();
-        Script script = builder.op(ScriptOpCodes.OP_BEACON).op(ScriptOpCodes.OP_EQUAL).build();
+        Script script = getEntryScript();
 
         // Construct an entry
         TransactionOutput txoGuess = 
@@ -206,7 +203,6 @@ public class LotteryEntry {
         
     private static void claimWinnings(int guess) {
       //try to claim all of the lottery winnings!
-      //TODO:
       if (kit.wallet().getBalance().isLessThan(Transaction.REFERENCE_DEFAULT_MIN_TX_FEE)) {
         System.out.println("Not enough money to send off a transaction.");
         return;
@@ -228,22 +224,15 @@ public class LotteryEntry {
       //int r = gen.nextInt(10);
       int r = guess;
       for (TransactionOutput to : candidates) {
-        //construct input with my guess
-        //construct output with my address
-        //send transaction
-        //handle error (guess is wrong)
-
-
         if (!to.getScriptPubKey().isLotteryEntry()) continue;
 
         System.out.println("Trying to claim: " + to.getParentTransactionHash() + " " + to.getIndex());
         System.out.println("With guess: " + r);
           
-        ScriptBuilder b = new ScriptBuilder();
-        Script claimScript = b.smallNum(r).build();
+        Script guessScript = getGuessScript(r);
 
         Transaction claimTx = Transaction.lotteryGuessTransaction(params);
-        claimTx.addInput(to.getParentTransactionHash(), to.getIndex(), claimScript); 
+        claimTx.addInput(to.getParentTransactionHash(), to.getIndex(), guessScript); 
           
         TransactionOutput returnToMe = new TransactionOutput(
           params,
@@ -266,15 +255,6 @@ public class LotteryEntry {
           @Override
           public void run() {
             System.out.println("Sent out claim! Claim Transaction hash is " + sendResult.tx.getHashAsString() + "\n\n\n\n\n");
-            //sleep for 30 seconds
-            /*try {
-              Thread.sleep(30000);
-            } catch (InterruptedException ignored) {}
-            System.out.println("Confidence: " + req.tx.getConfidence());
-            for (Map.Entry<Sha256Hash, Integer> entry : req.tx.getAppearsInHashes().entrySet()) {
-              System.out.println("In block: " + entry.getKey() + " " + entry.getValue());
-            }
-            System.out.println("\n\n\n\n");*/
           }
        }, MoreExecutors.sameThreadExecutor());
     }
@@ -283,6 +263,73 @@ public class LotteryEntry {
 
   private static void prettyPrint(String s) {
     System.out.println("\n\n################\n" + s + "\n################");
+  }
+
+  /* 
+    IF
+      <now + 100 blocks> CHECKLOCKTIMEVERIFY DROP
+      OP_BEACON
+      OP_EQUAL
+    ELSE
+      <now + 102 blocks> CHECKLOCKTIMEVERIFY DROP
+      OP_DUP
+      OP_HASH160
+      <Rollover PubKey HASH> 
+      OP_EQUALVERIFY 
+      OP_CHECKSIG
+    ENDIF
+  */
+  private static Script getEntryScript() {
+    ScriptBuilder builder = new ScriptBuilder();
+    builder = builder.op(ScriptOpCodes.OP_IF);
+
+    //beacon part
+    int currentBlock;
+    if (null == kit || null == kit.wallet()) {
+      currentBlock = 0;
+    } else {
+      currentBlock = kit.wallet().getLastBlockSeenHeight();
+    }
+
+    builder = builder.number(currentBlock+100)
+      .op(ScriptOpCodes.OP_CHECKLOCKTIMEVERIFY).op(ScriptOpCodes.OP_DROP);
+    addBeaconPartOfScript(builder);
+
+    builder = builder.op(ScriptOpCodes.OP_ELSE);
+
+    //normal part
+    builder = builder.number(currentBlock+102)
+      .op(ScriptOpCodes.OP_CHECKLOCKTIMEVERIFY).op(ScriptOpCodes.OP_DROP);
+    String rolloverAddressString = "n364gXEMN4PVjVw3JFAknijbuLjLjHn333"; //TODO: change this
+    Address rolloverAddress = new Address(params, rolloverAddressString);
+    builder = builder.addScript(ScriptBuilder.createOutputScript(rolloverAddress));
+
+    builder = builder.op(ScriptOpCodes.OP_ENDIF);
+    System.out.println(builder.build());
+    return builder.build();
+  }
+
+  private static void addBeaconPartOfScript(ScriptBuilder builder) {
+    builder.op(ScriptOpCodes.OP_BEACON).op(ScriptOpCodes.OP_EQUAL);
+  }
+
+  /*
+    OP_X
+    1
+  */
+  private static List<Script> getAllGuessScripts() {
+    List<Script> scriptList = new ArrayList<Script>();
+      for(int i = 1; i < 10; i++) {
+        scriptList.add(getGuessScript(i));
+      }
+    return scriptList;
+  }
+
+  private static Script getGuessScript(int guess) {
+    ScriptBuilder builder = new ScriptBuilder();
+    //add the guess and then "1" for the first branch of the entry script
+    Script script = builder.smallNum(guess).smallNum(1).build();
+    return script;
   }
 }
 
