@@ -58,5 +58,6 @@ do
   ./connect.sh >> log
   cd $PREFIX
 done
-
+echo "Seed nodes connected."
 rm connect.sh
+echo "Completed."

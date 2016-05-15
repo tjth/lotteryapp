@@ -51,11 +51,6 @@ public class LotteryEntry {
     private static NetworkParameters params;
 
     public static void main(String[] args) throws Exception {
-      Script script1 = getEntryScript();
-      System.out.println("Script 1 is " + (script1.isLotteryEntry() ? "" : "not ") + "a lottery entry script.");
-      Script script2 = getGuessScript(5);
-      System.out.println("Script 2 is " + (script2.isLotteryClaim() ? "" : "not ") + "a lottery claim script.");
-
       BriefLogFormatter.init();
       if (args.length < 1) {
           System.err.println("Usage: LotteryEntry [regtest|testnet] [customPort?] [lotterySeed?]");
@@ -129,7 +124,7 @@ public class LotteryEntry {
         switch(command) {
          case "quit" : return;
          case "balance": 
-           prettyPrint("Current balance: " + kit.wallet().getBalance(BalanceType.LOTTERYAVAILABLE).toPlainString());
+           prettyPrint("Current balance: " + kit.wallet().getBalance().toPlainString());
            break;
          case "claimable":
            prettyPrint("Claimable: " + kit.wallet().getClaimableBalance().toPlainString());
@@ -176,6 +171,7 @@ public class LotteryEntry {
         valueNeeded = valueNeeded.add(Transaction.REFERENCE_DEFAULT_MIN_TX_FEE);
         if (kit.wallet().getBalance().isLessThan(valueNeeded)) {
           System.out.println("Not enough balance to enter lottery!");
+          System.out.println("Needed balance: " + valueNeeded);
           System.out.println("Wallet balance: " + kit.wallet().getBalance());
           return;
         } 
@@ -219,7 +215,8 @@ public class LotteryEntry {
         System.out.println(to.getParentTransactionHash() + " " + to.getIndex());
       }
 
-      Address myAddress = kit.wallet().currentReceiveKey().toAddress(params);
+      int currentBlock = kit.wallet().getLastBlockSeenHeight();
+
       //Random gen = new Random();
       //int r = gen.nextInt(10);
       int r = guess;
@@ -233,6 +230,8 @@ public class LotteryEntry {
 
         Transaction claimTx = Transaction.lotteryGuessTransaction(params);
         claimTx.addInput(to.getParentTransactionHash(), to.getIndex(), guessScript); 
+        //arbitrarily set sequence number to 100 (not 0xff)
+        claimTx.getInputs().get(0).setSequenceNumber(100);
           
         TransactionOutput returnToMe = new TransactionOutput(
           params,
@@ -241,7 +240,7 @@ public class LotteryEntry {
           kit.wallet().getChangeAddress()
         );
         claimTx.addOutput(returnToMe);
-        
+        claimTx.setLockTime(currentBlock);
 
         Wallet.SendRequest req = Wallet.SendRequest.forTx(claimTx);
         Wallet.SendResult sendResult; 
