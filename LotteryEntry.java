@@ -250,10 +250,23 @@ public class LotteryEntry {
           throw new RuntimeException(e);
         }
 
-        sendResult.broadcastComplete.addListener(new Runnable() {
+        Futures.addCallback(sendResult.broadcastComplete, new FutureCallback<Transaction>() {
           @Override
-          public void run() {
+          public void onSuccess(Transaction t) {
             System.out.println("Sent out claim! Claim Transaction hash is " + sendResult.tx.getHashAsString() + "\n\n\n\n\n");
+          }
+
+          @Override
+          public void onFailure(Throwable t) {
+            if (t instanceof RejectedTransactionException) {
+              RejectedTransactionException rte = (RejectedTransactionException) t;
+              System.out.println("WARNING: Transaction " + rte.getTransaction().getHash() + " rejected. Error:");
+              System.out.println(rte.getRejectMessage().getRejectedMessage());
+              System.out.println(rte.getRejectMessage().getReasonString());
+            } else {
+              System.out.println("WARNING: Transaction rejected for some reason.");
+              t.printStackTrace();
+            }
           }
        }, MoreExecutors.sameThreadExecutor());
     }
