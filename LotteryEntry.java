@@ -120,14 +120,19 @@ public class LotteryEntry {
       Scanner sc = new Scanner(System.in);
       String command = "";
       while(true) {
+        System.out.println("\n\nEnter command:");
         command = sc.next();
         switch(command) {
+         case "height" : prettyPrint(kit.wallet().getLastBlockSeenHeight() + ""); break;
          case "quit" : return;
          case "balance": 
            prettyPrint("Current balance: " + kit.wallet().getBalance().toPlainString());
            break;
          case "claimable":
-           prettyPrint("Claimable: " + kit.wallet().getClaimableBalance().toPlainString());
+           prettyPrint("Claimable: " + kit.wallet().getClaimableBalance(false).toPlainString());
+           break;
+         case "prevclaimable":
+           prettyPrint("Claimable: " + kit.wallet().getClaimableBalance(true).toPlainString());
            break;
          case "enter" : lotteryEntry(); break;
          case "claim" : 
@@ -146,7 +151,17 @@ public class LotteryEntry {
             break;
           case "candidates" :
             prettyPrint("Spend candidates (other entries):");
-            for (TransactionOutput o : kit.wallet().calculateAllClaimCandidates())
+            for (TransactionOutput o : kit.wallet().calculateAllClaimCandidates(false))
+              System.out.println(o.getParentTransactionHash() + " " + o.getIndex());
+            break;
+          case "prevcandidates" :
+            prettyPrint("Previous spend candidates (other entries):");
+            List<TransactionOutput> candidates = kit.wallet().calculateAllClaimCandidates(true);
+            if (null == candidates) {
+              prettyPrint("Not in lottery claimable period.");
+              break;
+            }
+            for (TransactionOutput o : candidates)
               System.out.println(o.getParentTransactionHash() + " " + o.getIndex());
             break;
           default:
@@ -204,7 +219,11 @@ public class LotteryEntry {
         return;
       }
 
-      List<TransactionOutput> candidates = kit.wallet().calculateAllClaimCandidates();
+      List<TransactionOutput> candidates = kit.wallet().calculateAllClaimCandidates(true);
+      if (candidates == null) {
+        System.out.println("Not in claiming period");
+        return;
+      }
       if (candidates.size() == 0) {
         System.out.println("No current claim candidates.\n");
         return;
@@ -283,21 +302,16 @@ public class LotteryEntry {
     builder = builder.op(ScriptOpCodes.OP_IF);
 
     //beacon part
-    int currentBlock;
-    if (null == kit || null == kit.wallet()) {
-      currentBlock = 0;
-    } else {
-      currentBlock = kit.wallet().getLastBlockSeenHeight();
-    }
+    int currentLottery = kit.wallet().getCurrentLotteryStartBlock();
 
-    builder = builder.number(currentBlock+100)
+    builder = builder.number(currentLottery+100)
       .op(ScriptOpCodes.OP_CHECKLOCKTIMEVERIFY).op(ScriptOpCodes.OP_DROP);
     addBeaconPartOfScript(builder);
 
     builder = builder.op(ScriptOpCodes.OP_ELSE);
 
     //normal part
-    builder = builder.number(currentBlock+102)
+    builder = builder.number(currentLottery+102)
       .op(ScriptOpCodes.OP_CHECKLOCKTIMEVERIFY).op(ScriptOpCodes.OP_DROP);
     String rolloverAddressString = "n364gXEMN4PVjVw3JFAknijbuLjLjHn333"; //TODO: change this
     Address rolloverAddress = new Address(params, rolloverAddressString);
