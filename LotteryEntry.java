@@ -31,7 +31,11 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.MoreExecutors;
 
+import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStreamWriter;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
@@ -114,6 +118,7 @@ public class LotteryEntry {
 
       Address sendToAddress = kit.wallet().currentReceiveKey().toAddress(params);
       System.out.println("My address is: " + sendToAddress);
+      writeAddressToFile(sendToAddress);
 
       System.out.println("Please enter a command.");
       System.out.println("Type \"help\" for list of commands and \"quit\" to exit.");
@@ -254,8 +259,8 @@ public class LotteryEntry {
         System.out.println("Trying to claim: " + to.getParentTransactionHash() + " " + to.getIndex());
         System.out.println("With guess: " + r);
           
-        int startBlock = Math.max(currentBlock-50, 5);
-        Script guessScript = getGuessScript(r, startBlock, startBlock+3);
+        int startBlock = currentBlock;
+        Script guessScript = getGuessScript(r, startBlock, startBlock+1);
 
         Transaction claimTx = Transaction.lotteryGuessTransaction(params);
         claimTx.addInput(to.getParentTransactionHash(), to.getIndex(), guessScript); 
@@ -269,7 +274,7 @@ public class LotteryEntry {
           kit.wallet().getChangeAddress()
         );
         claimTx.addOutput(returnToMe);
-        claimTx.setLockTime(currentBlock);
+        claimTx.setLockTime(currentBlock+4);
 
         Wallet.SendRequest req = Wallet.SendRequest.forTx(claimTx);
         Wallet.SendResult sendResult; 
@@ -356,6 +361,23 @@ public class LotteryEntry {
                            .op(ScriptOpCodes.OP_FLEXIHASH).number(bitsOfRandomness)
                            .number(endBlock).number(startBlock).smallNum(1).build();
     return script;
+  }
+
+  private static void writeAddressToFile(Address addr) {
+    try {
+      File fout = new File("address.txt");
+      if (!fout.exists()) {
+        fout.createNewFile();
+      }
+
+      FileOutputStream fos = new FileOutputStream(fout);
+      BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(fos));
+      bw.write(addr.toString());
+      bw.close();
+    } catch (IOException e) {
+      e.printStackTrace();
+      throw new RuntimeException(e);
+    }
   }
 }
 
