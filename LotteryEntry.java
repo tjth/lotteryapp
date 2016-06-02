@@ -314,15 +314,18 @@ public class LotteryEntry {
 
     //beacon part
     int currentLottery = kit.wallet().getCurrentLotteryStartBlock();
+    int lotteryPeriod = kit.wallet().getLotteryPeriod();
+    int lotteryDelayTime = kit.wallet().getLotteryDelayPeriod();
+    int lotteryClaimingPeriod = kit.wallet().getLotteryClaimingPeriod();
 
-    builder = builder.number(currentLottery+100)
+    builder = builder.number(currentLottery+lotteryPeriod+lotteryDelayTime)
       .op(ScriptOpCodes.OP_CHECKLOCKTIMEVERIFY).op(ScriptOpCodes.OP_DROP);
     addBeaconPartOfScript(builder);
 
     builder = builder.op(ScriptOpCodes.OP_ELSE);
 
     //normal part
-    builder = builder.number(currentLottery+102)
+    builder = builder.number(currentLottery+lotteryPeriod+lotteryDelayTime+lotteryClaimingPeriod)
       .op(ScriptOpCodes.OP_CHECKLOCKTIMEVERIFY).op(ScriptOpCodes.OP_DROP);
     String rolloverAddressString = "n364gXEMN4PVjVw3JFAknijbuLjLjHn333"; //TODO: change this
     Address rolloverAddress = new Address(params, rolloverAddressString);
