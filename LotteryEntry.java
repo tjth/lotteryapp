@@ -49,7 +49,7 @@ import org.bitcoinj.core.listeners.WalletCoinsReceivedEventListener;
 public class LotteryEntry {
     private static WalletAppKit kit;
     private static NetworkParameters params;
-    private static int bitsOfRandomness = 5;
+    private static int bitsOfRandomness = 20;
 
     public static void main(String[] args) throws Exception {
       BriefLogFormatter.init();
@@ -276,7 +276,8 @@ public class LotteryEntry {
         try {
           sendResult = kit.wallet().sendCoins(req);
         } catch (InsufficientMoneyException e) {
-          throw new RuntimeException(e);
+          System.out.println("Not enough money to send out claim!");
+          return;
         }
 
         sendResult.broadcastComplete.addListener(new Runnable() {
