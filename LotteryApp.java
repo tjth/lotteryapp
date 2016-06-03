@@ -412,8 +412,9 @@ public class LotteryApp {
     System.out.println("Found earliest entry: " + e);
 
     byte[] hashBytes = e.getHash().getBytes();
+    int height = kit.wallet().getLastBlockSeenHeight();
 
-    Script script = builder.data(hashBytes).number(guess).number(bitsOfRandomness)
+    Script script = builder.data(hashBytes).number(height).number(guess).number(bitsOfRandomness)
                            .op(ScriptOpCodes.OP_FLEXIHASH).number(bitsOfRandomness)
                            .smallNum(1).build();
     return script;
