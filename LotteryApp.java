@@ -329,11 +329,13 @@ public class LotteryApp {
 
   /* 
     IF
-      <now + 100 blocks> CHECKLOCKTIMEVERIFY DROP
+      <now + 104 blocks> CHECKLOCKTIMEVERIFY DROP
+      <beacon start block>
+      <beacon end block>
       OP_BEACON
       OP_EQUAL
     ELSE
-      <now + 102 blocks> CHECKLOCKTIMEVERIFY DROP
+      <now + 106 blocks> CHECKLOCKTIMEVERIFY DROP
       OP_DUP
       OP_HASH160
       <Rollover PubKey HASH> 
@@ -389,6 +391,14 @@ public class LotteryApp {
     return scriptList;
   }
 
+  /* 
+   * <entry tx hash>
+   * <plaintext guess>
+   * <bits of randomness>
+   * OP_FLEXIHASH
+   * <bits of randomness>
+   * OP_1
+   */
   private static Script getGuessScript(int guess, int startBlock, int endBlock) {
     ScriptBuilder builder = new ScriptBuilder();
     //add the guess and then "1" for the first branch of the entry script
@@ -398,6 +408,8 @@ public class LotteryApp {
       //haven't sent out a transaction with this guess before
       return null;
     }
+
+    System.out.println("Found earliest entry: " + e);
 
     byte[] hashBytes = e.getHash().getBytes();
 
