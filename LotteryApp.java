@@ -34,7 +34,10 @@ import com.google.common.util.concurrent.MoreExecutors;
 import java.io.File;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -46,15 +49,19 @@ import java.util.TimerTask;
 import static com.google.common.base.Preconditions.checkNotNull;
 import org.bitcoinj.core.listeners.WalletCoinsReceivedEventListener;
 
-public class LotteryEntry {
+public class LotteryApp {
     private static WalletAppKit kit;
     private static NetworkParameters params;
     private static int bitsOfRandomness = 20;
 
+    /* map from entries with a boolean indicating if it was the previous lottery or this one */
+    private static HashSet<Entry> entries = new HashSet<Entry>();
+
     public static void main(String[] args) throws Exception {
+
       BriefLogFormatter.init();
       if (args.length < 1) {
-          System.err.println("Usage: LotteryEntry [regtest|testnet] [customPort?] [lotterySeed?]");
+          System.err.println("Usage: LotterApp [regtest|testnet] [customPort?] [lotterySeed?]");
           return;
       }
 
@@ -105,12 +112,13 @@ public class LotteryEntry {
       kit.startAsync();
       kit.awaitRunning();
 
+      ///TODO: can we remove this?
       // Make the wallet watch the lottery entry and claim scripts
-      ArrayList<Script> scriptList = new ArrayList<Script>();
-      Script script = getEntryScript();
-      scriptList.add(script);
+      //ArrayList<Script> scriptList = new ArrayList<Script>();
+      //Script script = getEntryScript();
+      //scriptList.add(script);
       //scriptList.addAll(getAllGuessScripts());
-      kit.wallet().addWatchedScripts(scriptList);
+      //kit.wallet().addWatchedScripts(scriptList);
 
       Address sendToAddress = kit.wallet().currentReceiveKey().toAddress(params);
       System.out.println("My address is: " + sendToAddress);
@@ -124,6 +132,12 @@ public class LotteryEntry {
         System.out.println("\n\nEnter command:");
         command = sc.next();
         switch(command) {
+         case "entries" :
+           prettyPrint("Your entries:");
+           for (Entry e : entries) {
+             System.out.println(e);
+           }
+           break;
          case "height" : prettyPrint(kit.wallet().getLastBlockSeenHeight() + ""); break;
          case "updaterandomness" : 
            try {
@@ -145,20 +159,32 @@ public class LotteryEntry {
          case "prevclaimable":
            prettyPrint("Claimable: " + kit.wallet().getClaimableBalance(true).toPlainString());
            break;
-         case "enter" : lotteryEntry(); break;
-         case "claim" : 
-           int guess;
+         case "enter" :
+           int eguess;
            try {
-             guess = Integer.parseInt(sc.next());
+             eguess = Integer.parseInt(sc.next());
             } catch (Exception e) {
-              System.out.println("Please provide a valid guess for claiming."); 
+              System.out.println("Please provide a valid guess for entering the lottery."); 
               e.printStackTrace();
               continue;
             }
-            claimWinnings(guess);
+           enterLottery(eguess); 
+           break;
+         case "claim" : 
+           int cguess;
+           try {
+             cguess = Integer.parseInt(sc.next());
+            } catch (Exception e) {
+              System.out.println("Please provide a valid guess for claiming (the same as you entered with."); 
+              e.printStackTrace();
+              continue;
+            }
+            claimWinnings(cguess);
             break;
           case "help" : 
-            prettyPrint("Commands: \"balance\", \"quit\", \"enter\", \"claim x\", \"candidates\""); 
+            prettyPrint("Commands: \"balance\", \"quit\", \"enter x\", \"claim x\"," +
+                     "\"candidates\", , \"prevcandidates\", \"height\", \"updaterandomness x\"," +
+                     "\"help\", \"entries\""); 
             break;
           case "candidates" :
             prettyPrint("Spend candidates (other entries):");
@@ -181,12 +207,12 @@ public class LotteryEntry {
       }
     }
 
-    private static void lotteryEntry() {
+    private static void enterLottery(int guess) {
       try {
         Coin lotteryEntryCost = Coin.COIN;
 
         // Construct an entry script
-        Script script = getEntryScript();
+        Script script = getEntryScript(guess);
 
         // Construct an entry
         TransactionOutput txoGuess = 
@@ -214,6 +240,8 @@ public class LotteryEntry {
           public void run() {
             System.out.println("Sent entry onwards! Transaction hash is " +
                        sendResult.tx.getHashAsString());
+            Entry entry = new Entry(sendResult.tx.getHash(), guess, new Date());
+            entries.add(entry);
           }
         }, MoreExecutors.sameThreadExecutor());
       } catch (KeyCrypterException | InsufficientMoneyException e) {
@@ -247,15 +275,20 @@ public class LotteryEntry {
 
       int currentBlock = kit.wallet().getLastBlockSeenHeight();
 
-      int r = guess;
+ 
       for (TransactionOutput to : candidates) {
         if (!to.getScriptPubKey().isLotteryEntry()) continue;
 
         System.out.println("Trying to claim: " + to.getParentTransactionHash() + " " + to.getIndex());
-        System.out.println("With guess: " + r);
+        System.out.println("With guess: " + guess);
           
         int startBlock = Math.max(currentBlock-50, 5);
-        Script guessScript = getGuessScript(r, startBlock, startBlock+3);
+        Script guessScript = getGuessScript(guess, startBlock, startBlock+3);
+
+        if (guessScript == null) {
+          System.err.println("Haven't sent an entry with this guess before.");
+          return;
+        }
 
         Transaction claimTx = Transaction.lotteryGuessTransaction(params);
         claimTx.addInput(to.getParentTransactionHash(), to.getIndex(), guessScript); 
@@ -308,7 +341,13 @@ public class LotteryEntry {
       OP_CHECKSIG
     ENDIF
   */
-  private static Script getEntryScript() {
+  private static Script getEntryScript(int guess) {
+    if (kit == null || kit.wallet() == null) {
+      System.err.println("Cannot get entry script when wallet is null.");
+      return null;
+    }
+
+    byte[] guessBytes = ByteBuffer.allocate(4).putInt(guess).array();
     ScriptBuilder builder = new ScriptBuilder();
     builder = builder.op(ScriptOpCodes.OP_IF);
 
@@ -319,12 +358,14 @@ public class LotteryEntry {
     int lotteryClaimingPeriod = kit.wallet().getLotteryClaimingPeriod();
 
     builder = builder.number(currentLottery+lotteryPeriod+lotteryDelayTime)
-      .op(ScriptOpCodes.OP_CHECKLOCKTIMEVERIFY).op(ScriptOpCodes.OP_DROP);
+      .op(ScriptOpCodes.OP_CHECKLOCKTIMEVERIFY).op(ScriptOpCodes.OP_DROP)
+      .number(currentLottery+lotteryPeriod).number(currentLottery+lotteryPeriod+lotteryDelayTime-1);
     addBeaconPartOfScript(builder);
+    builder = builder.data(guessBytes);
 
     builder = builder.op(ScriptOpCodes.OP_ELSE);
 
-    //normal part
+    //rollover part
     builder = builder.number(currentLottery+lotteryPeriod+lotteryDelayTime+lotteryClaimingPeriod)
       .op(ScriptOpCodes.OP_CHECKLOCKTIMEVERIFY).op(ScriptOpCodes.OP_DROP);
     String rolloverAddressString = "n364gXEMN4PVjVw3JFAknijbuLjLjHn333"; //TODO: change this
@@ -332,7 +373,6 @@ public class LotteryEntry {
     builder = builder.addScript(ScriptBuilder.createOutputScript(rolloverAddress));
 
     builder = builder.op(ScriptOpCodes.OP_ENDIF);
-    System.out.println(builder.build());
     return builder.build();
   }
 
@@ -340,10 +380,7 @@ public class LotteryEntry {
     builder.op(ScriptOpCodes.OP_BEACON).op(ScriptOpCodes.OP_EQUAL);
   }
 
-  /*
-    OP_X
-    1
-  */
+
   private static List<Script> getAllGuessScripts() {
     List<Script> scriptList = new ArrayList<Script>();
       for(int i = 1; i < 10; i++) {
@@ -355,10 +392,38 @@ public class LotteryEntry {
   private static Script getGuessScript(int guess, int startBlock, int endBlock) {
     ScriptBuilder builder = new ScriptBuilder();
     //add the guess and then "1" for the first branch of the entry script
-    Script script = builder.number(guess).number(bitsOfRandomness)
+    Entry e = removeFirstEntryGivenGuess(guess, entries);
+
+    if (e == null) {
+      //haven't sent out a transaction with this guess before
+      return null;
+    }
+
+    byte[] hashBytes = e.getHash().getBytes();
+
+    Script script = builder.data(hashBytes).number(guess).number(bitsOfRandomness)
                            .op(ScriptOpCodes.OP_FLEXIHASH).number(bitsOfRandomness)
-                           .number(endBlock).number(startBlock).smallNum(1).build();
+                           .smallNum(1).build();
     return script;
   }
-}
 
+  private static Entry removeFirstEntryGivenGuess(int guess, HashSet<Entry> entries) {
+    Entry earliest = null;
+
+    for (Entry e : entries) {
+      if (e.getGuess() == guess) {
+        if (earliest == null) {
+          earliest = e;
+          continue;
+        }
+
+        if (e.getDate().compareTo(earliest.getDate()) < 0) {
+          earliest = e;
+        }
+      }
+    }
+
+    if (earliest != null) entries.remove(earliest);
+    return earliest;
+  }
+}

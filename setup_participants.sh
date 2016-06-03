@@ -27,8 +27,8 @@ do
   rpcport=$((${i}+20222))
   dbgport=$((${i}+30111))
   
-  echo "javac -cp slf4j-simple-1.7.16.jar:bitcoinj-core-0.14-SNAPSHOT-bundled.jar:. -g LotteryEntry.java" > debug_app.sh
-  echo "java -cp slf4j-simple-1.7.16.jar:bitcoinj-core-0.14-SNAPSHOT-bundled.jar:app.jar:. -Xdebug -agentlib:jdwp=transport=dt_socket,address=127.0.0.1:$dbgport,server=y,suspend=y LotteryEntry lotterynet $port $SEEDIP" >> debug_app.sh
+  echo "javac -cp slf4j-simple-1.7.16.jar:bitcoinj-core-0.14-SNAPSHOT-bundled.jar:. -g LotteryApp.java Entry.java" > debug_app.sh
+  echo "java -cp slf4j-simple-1.7.16.jar:bitcoinj-core-0.14-SNAPSHOT-bundled.jar:app.jar:. -Xdebug -agentlib:jdwp=transport=dt_socket,address=127.0.0.1:$dbgport,server=y,suspend=y LotteryApp lotterynet $port $SEEDIP" >> debug_app.sh
 
   echo "java -cp .:jline-1.0.jar:/usr/lib/jvm/java-1.8.0-openjdk-amd64/lib/tools.jar jline.ConsoleRunner com.sun.tools.example.debug.tty.TTY -sourcepath /home/tjt12/bitcoinj-lotterycoin/core/src/main/java:. -attach 127.0.0.1:$dbgport" > attach_debugger.sh
   
@@ -36,7 +36,7 @@ do
   chmod +x attach_debugger.sh  
 
   cd $PREFIX
-  cp jline-1.0.jar slf4j-simple-1.7.16.jar ~/bitcoinj-lotterycoin/core/target/bitcoinj-core-0.14-SNAPSHOT-bundled.jar LotteryEntry.java build_and_run_app.sh $PARTICIPANTS/$NEWDIR
+  cp jline-1.0.jar slf4j-simple-1.7.16.jar ~/bitcoinj-lotterycoin/core/target/bitcoinj-core-0.14-SNAPSHOT-bundled.jar LotteryApp.java Entry.java build_and_run_app.sh $PARTICIPANTS/$NEWDIR
   echo `cat run_app.sh` "$port $SEEDIP" >> $PARTICIPANTS/$NEWDIR/build_and_run_app.sh
   
   echo "$NEWDIR created."

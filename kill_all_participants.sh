@@ -1,1 +1,1 @@
-pkill -9 -f 'java.*LotteryEntry'
+pkill -9 -f 'java.*LotteryApp'
