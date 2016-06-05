@@ -46,7 +46,7 @@ do
   chmod +x bitcoin_command.sh
 
   echo "$NEWDIR created."
-  ./run_daemon.sh
+  ./debug_daemon.sh
   cd $PREFIX
 done
 

@@ -35,7 +35,9 @@ import java.io.File;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
@@ -284,6 +286,7 @@ public class LotteryApp {
           
         int startBlock = Math.max(currentBlock-50, 5);
         Script guessScript = getGuessScript(guess, startBlock, startBlock+3);
+        System.out.println("DBG: guess script a lottery claim?" + guessScript.isLotteryClaim());
 
         if (guessScript == null) {
           System.err.println("Haven't sent an entry with this guess before.");
@@ -412,9 +415,10 @@ public class LotteryApp {
     System.out.println("Found earliest entry: " + e);
 
     byte[] hashBytes = e.getHash().getBytes();
+    //reverseArray(hashBytes);
     int height = kit.wallet().getLastBlockSeenHeight();
 
-    Script script = builder.data(hashBytes).number(height).number(guess).number(bitsOfRandomness)
+    Script script = builder.data(hashBytes).number(guess).number(bitsOfRandomness)
                            .op(ScriptOpCodes.OP_FLEXIHASH).number(bitsOfRandomness)
                            .smallNum(1).build();
     return script;
@@ -438,5 +442,13 @@ public class LotteryApp {
 
     if (earliest != null) entries.remove(earliest);
     return earliest;
+  }
+
+  private static void reverseArray(byte[] arr) {
+    for (int i = 0; i < arr.length/2; i++) {
+      byte temp = arr[i];
+      arr[i] = arr[arr.length-i-1];
+      arr[arr.length-i-1] = temp;
+    }
   }
 }
