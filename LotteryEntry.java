@@ -105,13 +105,6 @@ public class LotteryEntry {
       kit.startAsync();
       kit.awaitRunning();
 
-      // Make the wallet watch the lottery entry and claim scripts
-      ArrayList<Script> scriptList = new ArrayList<Script>();
-      Script script = getEntryScript();
-      scriptList.add(script);
-      //scriptList.addAll(getAllGuessScripts());
-      kit.wallet().addWatchedScripts(scriptList);
-
       Address sendToAddress = kit.wallet().currentReceiveKey().toAddress(params);
       System.out.println("My address is: " + sendToAddress);
 
@@ -254,8 +247,7 @@ public class LotteryEntry {
         System.out.println("Trying to claim: " + to.getParentTransactionHash() + " " + to.getIndex());
         System.out.println("With guess: " + r);
           
-        int startBlock = Math.max(currentBlock-50, 5);
-        Script guessScript = getGuessScript(r, startBlock, startBlock+3);
+        Script guessScript = getGuessScript(r);
 
         Transaction claimTx = Transaction.lotteryGuessTransaction(params);
         claimTx.addInput(to.getParentTransactionHash(), to.getIndex(), guessScript); 
@@ -296,11 +288,13 @@ public class LotteryEntry {
 
   /* 
     IF
-      <now + 100 blocks> CHECKLOCKTIMEVERIFY DROP
+      <now + 104 blocks> CHECKLOCKTIMEVERIFY DROP
+      <beacon start block>
+      <beacon end block>
       OP_BEACON
       OP_EQUAL
     ELSE
-      <now + 102 blocks> CHECKLOCKTIMEVERIFY DROP
+      <now + 106 blocks> CHECKLOCKTIMEVERIFY DROP
       OP_DUP
       OP_HASH160
       <Rollover PubKey HASH> 
@@ -314,15 +308,19 @@ public class LotteryEntry {
 
     //beacon part
     int currentLottery = kit.wallet().getCurrentLotteryStartBlock();
+    int lotteryPeriod = kit.wallet().getLotteryPeriod();
+    int lotteryDelayTime = kit.wallet().getLotteryDelayPeriod();
+    int lotteryClaimingPeriod = kit.wallet().getLotteryClaimingPeriod();
 
-    builder = builder.number(currentLottery+100)
-      .op(ScriptOpCodes.OP_CHECKLOCKTIMEVERIFY).op(ScriptOpCodes.OP_DROP);
+    builder = builder.number(currentLottery+lotteryPeriod+lotteryDelayTime)
+      .op(ScriptOpCodes.OP_CHECKLOCKTIMEVERIFY).op(ScriptOpCodes.OP_DROP)
+      .number(currentLottery+lotteryPeriod).number(currentLottery+lotteryPeriod+lotteryDelayTime-1);
     addBeaconPartOfScript(builder);
 
     builder = builder.op(ScriptOpCodes.OP_ELSE);
 
-    //normal part
-    builder = builder.number(currentLottery+102)
+    //rollover part
+    builder = builder.number(currentLottery+lotteryPeriod+lotteryDelayTime+lotteryClaimingPeriod)
       .op(ScriptOpCodes.OP_CHECKLOCKTIMEVERIFY).op(ScriptOpCodes.OP_DROP);
     String rolloverAddressString = "n364gXEMN4PVjVw3JFAknijbuLjLjHn333"; //TODO: change this
     Address rolloverAddress = new Address(params, rolloverAddressString);
@@ -349,12 +347,21 @@ public class LotteryEntry {
     return scriptList;
   }
 
-  private static Script getGuessScript(int guess, int startBlock, int endBlock) {
+ 
+  /*
+   * <guess>
+   * <bits of randomness>
+   * OP_FLEXIHASH
+   * <bits of randomness>
+   * OP_1
+   */
+  private static Script getGuessScript(int guess) {
     ScriptBuilder builder = new ScriptBuilder();
+
     //add the guess and then "1" for the first branch of the entry script
     Script script = builder.number(guess).number(bitsOfRandomness)
                            .op(ScriptOpCodes.OP_FLEXIHASH).number(bitsOfRandomness)
-                           .number(endBlock).number(startBlock).smallNum(1).build();
+                           .smallNum(1).build();
     return script;
   }
 }
