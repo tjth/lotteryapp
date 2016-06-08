@@ -327,7 +327,6 @@ public class LotteryEntry {
     builder = builder.addScript(ScriptBuilder.createOutputScript(rolloverAddress));
 
     builder = builder.op(ScriptOpCodes.OP_ENDIF);
-    System.out.println(builder.build());
     return builder.build();
   }
 
