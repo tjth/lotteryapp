@@ -40,8 +40,6 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Scanner;
 import java.util.NoSuchElementException;
-import java.util.Timer;
-import java.util.TimerTask;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import org.bitcoinj.core.listeners.WalletCoinsReceivedEventListener;
@@ -108,16 +106,23 @@ public class LotteryEntry {
       Address sendToAddress = kit.wallet().currentReceiveKey().toAddress(params);
       System.out.println("My address is: " + sendToAddress);
 
-      System.out.println("Please enter a command.");
-      System.out.println("Type \"help\" for list of commands and \"quit\" to exit.");
+      handleCommands();
+    }
 
+    private static void handleCommands() {
+      String commands = "height, updaterandomness x, quit, balance, claimable, prevclaimable, 
+                   enter, claim x, help, candidates, prevcandidates";
       Scanner sc = new Scanner(System.in);
       String command = "";
+
       while(true) {
         System.out.println("\n\nEnter command:");
+        System.out.println("Type \"help\" for list of commands and \"quit\" to exit.");
+
         command = sc.next();
         switch(command) {
-         case "height" : prettyPrint(kit.wallet().getLastBlockSeenHeight() + ""); break;
+         case "height" : prettyPrint("Height: " + kit.wallet().getLastBlockSeenHeight() + ""); break;
+
          case "updaterandomness" : 
            try {
              bitsOfRandomness = Integer.parseInt(sc.next());
@@ -128,17 +133,23 @@ public class LotteryEntry {
             }
            prettyPrint("Updates randomness to: " + bitsOfRandomness); 
            break;
+
          case "quit" : return;
+
          case "balance": 
            prettyPrint("Current balance: " + kit.wallet().getBalance().toPlainString());
            break;
+
          case "claimable":
            prettyPrint("Claimable: " + kit.wallet().getClaimableBalance(false).toPlainString());
            break;
+
          case "prevclaimable":
            prettyPrint("Claimable: " + kit.wallet().getClaimableBalance(true).toPlainString());
            break;
+
          case "enter" : lotteryEntry(); break;
+
          case "claim" : 
            int guess;
            try {
@@ -150,14 +161,17 @@ public class LotteryEntry {
             }
             claimWinnings(guess);
             break;
+
           case "help" : 
-            prettyPrint("Commands: \"balance\", \"quit\", \"enter\", \"claim x\", \"candidates\""); 
+            prettyPrint("Commands: " + commands); 
             break;
+
           case "candidates" :
             prettyPrint("Spend candidates (other entries):");
             for (TransactionOutput o : kit.wallet().calculateAllClaimCandidates(false))
               System.out.println(o.getParentTransactionHash() + " " + o.getIndex());
             break;
+
           case "prevcandidates" :
             prettyPrint("Previous spend candidates (other entries):");
             List<TransactionOutput> candidates = kit.wallet().calculateAllClaimCandidates(true);
@@ -168,8 +182,9 @@ public class LotteryEntry {
             for (TransactionOutput o : candidates)
               System.out.println(o.getParentTransactionHash() + " " + o.getIndex());
             break;
+
           default:
-            prettyPrint("Unrecognized command.");
+            System.err.println("Unrecognized command.");
         }
       }
     }
@@ -210,7 +225,6 @@ public class LotteryEntry {
           }
         }, MoreExecutors.sameThreadExecutor());
       } catch (KeyCrypterException | InsufficientMoneyException e) {
-          // We don't use encrypted wallets in this example - can never happen.
           throw new RuntimeException(e);
       }
     }
@@ -219,41 +233,36 @@ public class LotteryEntry {
     private static void claimWinnings(int guess) {
       //try to claim all of the lottery winnings!
       if (kit.wallet().getBalance().isLessThan(Transaction.REFERENCE_DEFAULT_MIN_TX_FEE)) {
-        System.out.println("Not enough money to send off a transaction.");
+        System.err.println("Not enough money to send off a transaction.");
         return;
       }
 
       List<TransactionOutput> candidates = kit.wallet().calculateAllClaimCandidates(true);
       if (candidates == null) {
-        System.out.println("Not in claiming period");
+        System.err.println("Not in claiming period");
         return;
       }
       if (candidates.size() == 0) {
-        System.out.println("No current claim candidates.\n");
+        System.err.println("No current claim candidates.\n");
         return;
-      }
-
-      System.out.println("Spend Candidates:");
-      for (TransactionOutput to : candidates) {
-        System.out.println(to.getParentTransactionHash() + " " + to.getIndex());
       }
 
       int currentBlock = kit.wallet().getLastBlockSeenHeight();
 
-      int r = guess;
       for (TransactionOutput to : candidates) {
         if (!to.getScriptPubKey().isLotteryEntry()) continue;
 
-        System.out.println("Trying to claim: " + to.getParentTransactionHash() + " " + to.getIndex());
-        System.out.println("With guess: " + r);
+        System.out.print("Trying to claim tx: " + to.getParentTransactionHash() + ", output " + to.getIndex());
+        System.out.println(", with guess: " + guess);
           
-        Script guessScript = getGuessScript(r);
+        Script guessScript = getGuessScript(guess);
 
         Transaction claimTx = Transaction.lotteryGuessTransaction(params);
         claimTx.addInput(to.getParentTransactionHash(), to.getIndex(), guessScript); 
-        //arbitrarily set sequence number to 100 (not 0xff)
+        //arbitrarily set sequence number to 100 (not 0xff) so nLockTime is not ignored
         claimTx.getInputs().get(0).setSequenceNumber(100);
-          
+         
+        //return change 
         TransactionOutput returnToMe = new TransactionOutput(
           params,
           null,
@@ -268,7 +277,7 @@ public class LotteryEntry {
         try {
           sendResult = kit.wallet().sendCoins(req);
         } catch (InsufficientMoneyException e) {
-          System.out.println("Not enough money to send out claim!");
+          System.err.println("Not enough money to send out claim!");
           return;
         }
 
@@ -332,18 +341,6 @@ public class LotteryEntry {
 
   private static void addBeaconPartOfScript(ScriptBuilder builder) {
     builder.op(ScriptOpCodes.OP_BEACON).op(ScriptOpCodes.OP_EQUAL);
-  }
-
-  /*
-    OP_X
-    1
-  */
-  private static List<Script> getAllGuessScripts() {
-    List<Script> scriptList = new ArrayList<Script>();
-      for(int i = 1; i < 10; i++) {
-        //scriptList.add(getGuessScript(i));
-      }
-    return scriptList;
   }
 
  
