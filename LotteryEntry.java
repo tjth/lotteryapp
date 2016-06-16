@@ -47,61 +47,41 @@ import java.util.NoSuchElementException;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import org.bitcoinj.core.listeners.WalletCoinsReceivedEventListener;
+import org.bitcoinj.core.listeners.WalletChangeEventListener;
 
 public class LotteryEntry {
     private static WalletAppKit kit;
     private static NetworkParameters params;
     private static int bitsOfRandomness = 20;
+    private static boolean autoenter = false;
+    private static boolean autoclaim = false;
 
     public static void main(String[] args) throws Exception {
       BriefLogFormatter.init();
-      if (args.length < 1) {
-          System.err.println("Usage: LotteryEntry [regtest|testnet] [customPort?] [lotterySeed?]");
+      if (args.length < 4) {
+          System.err.println("Usage: LotteryEntry [customPort] [lotterySeed] [autoenter] [autoclaim]");
           return;
       }
+ 
+      autoenter = args[2].equalsIgnoreCase("true");
+      autoclaim = args[3].equalsIgnoreCase("true");
 
       // Figure out which network we should connect to. Each one gets its own set of files.
       String filePrefix;
-      if (args[0].equals("lotterynet")) {
-          if (args.length != 3) {
-            System.err.println("Please supply a port and seed for lottery net!");
-            return;
-          }
-
-          params = LotteryNetParams.get(Integer.parseInt(args[1]));
-          filePrefix = "lottery-entry-lotterynet";
-      } else if (args[0].equals("testnet")) {
-          params = TestNet3Params.get();
-          filePrefix = "lottery-entry-testnet";
-      } else if (args[0].equals("regtest")) {
-          if (args.length == 2) 
-            params = RegTestParams.get(Integer.parseInt(args[1]));
-          else 
-            params = RegTestParams.get();
-          filePrefix = "lottery-entry-regtest";
-      } else {
-          params = MainNetParams.get();
-          filePrefix = "lottery-entry";
-      }
+      params = LotteryNetParams.get(Integer.parseInt(args[0]));
+      filePrefix = "lottery-entry-lotterynet";
 
       // Start up a basic app using a class that automates some boilerplate.
       kit = new WalletAppKit(params, new File("."), filePrefix, true); //use lottery wallet
-
-      if (params == RegTestParams.get()) {
-          // Regression test mode is designed for testing and development only, so there's no public network for it.
-          // If you pick this mode, you're expected to be running a local "bitcoind -regtest" instance.
-          kit.connectToLocalHost();
-      } else if (params == LotteryNetParams.get()) {
-          String seed = args[2]; 
-          InetAddress addr;
-          try {
-            addr = InetAddress.getByName(seed);
-          } catch (UnknownHostException e) {
-            System.err.println("Cannot connect to seed provided.");
-            throw new RuntimeException(e);
-          }
-          kit.connectToLotteryNet(addr);
+      String seed = args[1]; 
+      InetAddress addr;
+      try {
+        addr = InetAddress.getByName(seed);
+      } catch (UnknownHostException e) {
+        System.err.println("Cannot connect to seed provided.");
+        throw new RuntimeException(e);
       }
+      kit.connectToLotteryNet(addr);
 
       // Download the block chain and wait until it's done.
       kit.startAsync();
@@ -111,12 +91,49 @@ public class LotteryEntry {
       System.out.println("My address is: " + sendToAddress);
       writeAddressToFile(sendToAddress);
 
+      //TODO: add uuto enter and claim callbacks
+      if (autoenter) {
+         kit.wallet().addCoinsReceivedEventListener(new WalletCoinsReceivedEventListener() {
+            @Override
+            public void onCoinsReceived(Wallet w, Transaction tx, Coin prevBalance, Coin newBalance) {
+                Coin value = tx.getValueSentToMe(w);
+                Futures.addCallback(tx.getConfidence().getDepthFuture(1), new FutureCallback<TransactionConfidence>() {
+                    @Override
+                    public void onSuccess(TransactionConfidence result) {
+                        System.out.println("Received funds: entering the lottery!");
+                        lotteryEntry();
+                    }
+
+                    @Override
+                    public void onFailure(Throwable t) {
+                        // This kind of future can't fail, just rethrow in case something weird happens.
+                        throw new RuntimeException(t);
+                    }
+                });
+            }
+        });
+      }
+
+      if (autoclaim) {
+         kit.wallet().addChangeEventListener(new WalletChangeEventListener() {
+            @Override
+            public void onWalletChanged(Wallet w) {
+              int lastSeenHeight = w.getLastBlockSeenHeight();
+              if (lastSeenHeight >= w.getCurrentLotteryStartBlock() + w.getLotteryDelayPeriod()) {
+                int rand = (int) (Math.random() * 100 + 1);
+	        System.out.println("Block listener: in claiming period, claiming with guess " + rand);
+                claimWinnings(rand);
+	      }
+            }
+        });
+      }
+
       handleCommands();
     }
 
     private static void handleCommands() {
-      String commands = "height, updaterandomness x, quit, balance, claimable, prevclaimable, 
-                   enter, claim x, help, candidates, prevcandidates";
+      String commands = "height, updaterandomness x, quit, balance, claimable, prevclaimable, " +
+                   "enter, claim x, help, candidates, prevcandidates";
       Scanner sc = new Scanner(System.in);
       String command = "";
 
