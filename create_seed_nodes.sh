@@ -16,7 +16,7 @@ done
 chmod +x connect.sh
 
 SEEDDIR="seed_nodes"
-PREFIX="/home/tjt12/lottery-app"
+PREFIX="/home/tjt12/lotteryapp"
 LOTTERYCOINLOC="/home/tjt12/lotterycoin"
 
 mkdir $SEEDDIR
@@ -26,7 +26,7 @@ do
   cd $SEEDDIR
   NEWDIR=seed-daemon-$i
   mkdir -p $NEWDIR
-  cp ../connect.sh ../send_money.sh $NEWDIR
+  cp ../connect.sh ../send_participants_money.sh $NEWDIR
   cd $NEWDIR
   mkdir data
 

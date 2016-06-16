@@ -7,7 +7,7 @@ then
 fi
 
 PARTICIPANTS="participants"
-PREFIX="/home/tjt12/lottery-app"
+PREFIX="/home/tjt12/lotteryapp"
 LOTTERYCOINLOC="/home/tjt12/lotterycoin"
 
 mkdir $PARTICIPANTS
