@@ -26,7 +26,7 @@ do
   cd $SEEDDIR
   NEWDIR=seed-daemon-$i
   mkdir -p $NEWDIR
-  cp ../connect.sh $NEWDIR
+  cp ../connect.sh ../send_money.sh $NEWDIR
   cd $NEWDIR
   mkdir data
 
