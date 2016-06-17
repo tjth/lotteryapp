@@ -59,7 +59,7 @@ public class LotteryEntry {
     private static boolean alreadyClaimed = false;
 
     public static void main(String[] args) throws Exception {
-      BriefLogFormatter.init();
+      System.setProperty(org.slf4j.impl.SimpleLogger.LOG_FILE_KEY, "bitcoinj-log.log");
       if (args.length < 4) {
           System.err.println("Usage: LotteryEntry [customPort] [lotterySeed] [autoenter] [autoclaim]");
           return;
