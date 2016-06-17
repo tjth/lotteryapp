@@ -54,7 +54,9 @@ public class LotteryEntry {
     private static NetworkParameters params;
     private static int bitsOfRandomness = 20;
     private static boolean autoenter = false;
-    private static boolean autoclaim = false;
+    private static boolean autoclaim = false;  
+    private static boolean alreadyEntered = false;
+    private static boolean alreadyClaimed = false;
 
     public static void main(String[] args) throws Exception {
       BriefLogFormatter.init();
@@ -91,17 +93,18 @@ public class LotteryEntry {
       System.out.println("My address is: " + sendToAddress);
       writeAddressToFile(sendToAddress);
 
-      //TODO: add uuto enter and claim callbacks
       if (autoenter) {
          kit.wallet().addCoinsReceivedEventListener(new WalletCoinsReceivedEventListener() {
             @Override
             public void onCoinsReceived(Wallet w, Transaction tx, Coin prevBalance, Coin newBalance) {
+                if (alreadyEntered) return;
                 Coin value = tx.getValueSentToMe(w);
                 Futures.addCallback(tx.getConfidence().getDepthFuture(1), new FutureCallback<TransactionConfidence>() {
                     @Override
                     public void onSuccess(TransactionConfidence result) {
                         System.out.println("Received funds: entering the lottery!");
                         lotteryEntry();
+                        alreadyEntered = true;
                     }
 
                     @Override
@@ -118,11 +121,15 @@ public class LotteryEntry {
          kit.wallet().addChangeEventListener(new WalletChangeEventListener() {
             @Override
             public void onWalletChanged(Wallet w) {
+              if (alreadyClaimed) return;
+
               int lastSeenHeight = w.getLastBlockSeenHeight();
-              if (lastSeenHeight >= w.getCurrentLotteryStartBlock() + w.getLotteryDelayPeriod()) {
+              System.out.println("Last block wallet has seen: " + lastSeenHeight + ", current lottery: " + w.getCurrentLotteryStartBlock());
+              if (lastSeenHeight >= w.getCurrentLotteryStartBlock() + w.getLotteryDelayPeriod() && w.getCurrentLotteryStartBlock() - w.getLotteryPeriod() > 0) {
                 int rand = (int) (Math.random() * 100 + 1);
 	        System.out.println("Block listener: in claiming period, claiming with guess " + rand);
-                claimWinnings(rand);
+                if(claimWinnings(rand))
+		  alreadyClaimed = true;
 	      }
             }
         });
@@ -252,21 +259,21 @@ public class LotteryEntry {
     }
 
         
-    private static void claimWinnings(int guess) {
+    private static boolean claimWinnings(int guess) {
       //try to claim all of the lottery winnings!
       if (kit.wallet().getBalance().isLessThan(Transaction.REFERENCE_DEFAULT_MIN_TX_FEE)) {
         System.err.println("Not enough money to send off a transaction.");
-        return;
+        return false;
       }
 
       List<TransactionOutput> candidates = kit.wallet().calculateAllClaimCandidates(true);
       if (candidates == null) {
         System.err.println("Not in claiming period");
-        return;
+        return false;
       }
       if (candidates.size() == 0) {
         System.err.println("No current claim candidates.\n");
-        return;
+        return false;
       }
 
       int currentBlock = kit.wallet().getLastBlockSeenHeight();
@@ -292,7 +299,7 @@ public class LotteryEntry {
           kit.wallet().getChangeAddress()
         );
         claimTx.addOutput(returnToMe);
-        claimTx.setLockTime(currentBlock+4);
+        claimTx.setLockTime(currentBlock);
 
         Wallet.SendRequest req = Wallet.SendRequest.forTx(claimTx);
         Wallet.SendResult sendResult; 
@@ -300,7 +307,7 @@ public class LotteryEntry {
           sendResult = kit.wallet().sendCoins(req);
         } catch (InsufficientMoneyException e) {
           System.err.println("Not enough money to send out claim!");
-          return;
+          return false;
         }
 
         sendResult.broadcastComplete.addListener(new Runnable() {
@@ -308,8 +315,10 @@ public class LotteryEntry {
           public void run() {
             System.out.println("Sent out claim! Claim Transaction hash is " + sendResult.tx.getHashAsString() + "\n\n\n\n\n");
           }
-       }, MoreExecutors.sameThreadExecutor());
-    }
+        }, MoreExecutors.sameThreadExecutor());
+        
+      }
+      return true;
   }
 
 
