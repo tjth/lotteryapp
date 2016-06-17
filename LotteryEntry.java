@@ -135,7 +135,11 @@ public class LotteryEntry {
         });
       }
 
-      handleCommands();
+      if (!autoenter && !autoclaim) {
+        handleCommands();
+      } else {
+        for (;;) {}
+      }
     }
 
     private static void handleCommands() {

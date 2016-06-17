@@ -37,7 +37,7 @@ do
 
   cd $PREFIX
   cp  ~/bitcoinj-lotterycoin/slf4j-1.7.16/slf4j-simple-1.7.16.jar ~/bitcoinj-lotterycoin/core/target/bitcoinj-core-0.14-SNAPSHOT-bundled.jar LotteryEntry.java build_and_run_app.sh $PARTICIPANTS/$NEWDIR
-  echo `cat run_app.sh` "$port $SEEDIP" >> $PARTICIPANTS/$NEWDIR/build_and_run_app.sh
+  echo `cat run_app.sh` "lotterynet $port $SEEDIP" >> $PARTICIPANTS/$NEWDIR/build_and_run_app.sh
   
   echo "$NEWDIR created."
 done
