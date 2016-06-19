@@ -164,7 +164,7 @@ public class LotteryEntry {
               e.printStackTrace();
               continue;
             }
-           prettyPrint("Updates randomness to: " + bitsOfRandomness); 
+           prettyPrint("Updated randomness to: " + bitsOfRandomness); 
            break;
 
          case "quit" : return;
